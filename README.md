@@ -1,52 +1,73 @@
 # 🧳 TripVault – Travel Bucket List App
 
-**TripVault** is a personal travel bucket list app built using **React**. It helps users save dream destinations, track travel status, and plan detailed day-wise itineraries. All data is stored in the browser using `localStorage`, so no backend is required.
+**TripVault** is a personal travel bucket list and itinerary planner built using **React** and **Firebase**. It helps users organize, plan, and track their dream trips—all from one place. Users can add destinations, build day-wise plans, and mark visited trips.
 
 ---
 
 ## ✨ Features
 
-### ✅ Add Trips to Bucket List
+### ✅ Add & Edit Trips
 
-- Add a new place with:
-  - Destination name
-  - Estimated budget
-  - Travel dates
-  - Travel type (Solo/Friends/Family)
-- Trips are displayed as cards.
+- Create or update a trip with:
+  - **Destination name**
+  - **Estimated budget**
+  - **Travel dates**
+  - **Travel type** (Solo / Friends / Family / Other)
+- Uses a **modal form** to add or edit trips.
+- All trips are stored in **Firebase Firestore**.
 
-### ✅ Manage Bucket List
+### ✅ View & Manage Bucket List
 
-- Each trip card shows:
+- Each trip is shown as a **card** with:
   - Place name
   - Travel period
-  - Wishlist/Completed status
+  - Budget
+  - Status toggle (Wishlist / Visited)
 - Options to:
-  - Edit trip details
-  - Delete a trip
-  - Add/View Itinerary
+  - Edit trip
+  - Delete trip
+  - Add itinerary
+  - View full details
 
-### ✅ Day-wise Itinerary Planner
+### ✅ Day-wise Itinerary Builder
 
-- Add itinerary with **Morning**, **Afternoon**, and **Evening** slots for each day.
-- Save updates to the itinerary per trip.
-- UI updates instantly after saving without needing a page refresh.
+- Add detailed **day-by-day** plans with slots:
+  - Morning, Afternoon, Evening
+- Managed via a **modal interface**
+- Stored and fetched from Firebase per trip
+- Supports editing and saving instantly
 
-### ✅ Data Persistence
+### ✅ Trip Details Page
 
-- All trip and itinerary data is stored in browser `localStorage`.
-- Key: `"tripvault"`
-- Data persists even after closing or refreshing the app.
+- Navigate to `/tripdetails/:id`
+- Displays complete trip info + itinerary
+- All data dynamically fetched from Firebase
+
+### ✅ Real-time Firebase Sync
+
+- Trip and itinerary data is synced with **Firebase Firestore**
+- Any add/edit/delete reflects instantly in the UI
+
+---
+
+## 🚧 Upcoming Features
+
+- 🌍 Interactive World Map to add countries visually
+- 📊 Analytics dashboard (visited vs wishlist)
+- 📅 Calendar integration
+- 🎒 Packing checklist
+- 💸 Budget planner
+- 👥 Trip sharing and collaboration
 
 ---
 
 ## 🛠 Tech Stack
 
-| Tech         | Purpose                      |
-| ------------ | ---------------------------- |
-| React        | Frontend framework           |
-| Tailwind CSS | Styling and layout           |
-| UUID         | Generate unique trip IDs     |
-| LocalStorage | Persist user data in-browser |
-
----
+| Tech         | Purpose                              |
+| ------------ | ------------------------------------ |
+| React        | Frontend framework                   |
+| Tailwind CSS | Styling and layout                   |
+| Firebase     | Backend (Firestore database)         |
+| UUID         | Unique trip IDs (optional fallback)  |
+| React Router | Routing (`/add`, `/tripdetails/:id`) |
+| React Modal  | Popup for adding itinerary/trips     |

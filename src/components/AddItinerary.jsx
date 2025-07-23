@@ -1,9 +1,23 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Modal from "react-modal";
+import { db } from "../firebase";
+import { doc, updateDoc } from "firebase/firestore";
 
 Modal.setAppElement("#root");
 
-const AddItinerary = ({ isOpen, onClose, setItinerary, trip }) => {
+const AddItinerary = ({
+  isOpen,
+  onClose,
+  setItinerary,
+  trip,
+  editItinerary,
+}) => {
+  useEffect(() => {
+    if (editItinerary && editItinerary.length > 0) {
+      setDays(editItinerary);
+    }
+  }, [editItinerary]);
+
   const [days, setDays] = useState([
     { day: 1, morning: "", afternoon: "", evening: "" },
   ]);
@@ -22,7 +36,7 @@ const AddItinerary = ({ isOpen, onClose, setItinerary, trip }) => {
     ]);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const isValid = days.every(
       (day) => day.morning || day.afternoon || day.evening
     );
@@ -31,17 +45,22 @@ const AddItinerary = ({ isOpen, onClose, setItinerary, trip }) => {
       return;
     }
 
-    if (trip) {
-      const updatedTrip = { ...trip, itinerary: days };
-      const existingTrip = JSON.parse(
-        localStorage.getItem("tripvault") || "[]"
-      );
-      const updatedTrips = existingTrip.map((t) =>
-        t.id === updatedTrip.id ? updatedTrip : t
-      );
-      localStorage.setItem("tripvault", JSON.stringify(updatedTrips));
-      setItinerary(updatedTrip.itinerary);
-      return onClose();
+    const tripId = trip?.id || editItinerary?.id;
+    if (tripId) {
+      // const updatedTrip = { ...trip, itinerary: days };
+      // console.log("Updated Trip Itinerary:", trip);
+      try {
+        const tripRef = doc(db, "places", tripId);
+        await updateDoc(tripRef, {
+          itinerary: days,
+        });
+        setItinerary(days);
+        onClose();
+      } catch (error) {
+        console.error("Error updating itinerary:", error);
+        alert("Failed to update itinerary. Please try again.");
+      }
+      return;
     }
     setItinerary(days);
     onClose();

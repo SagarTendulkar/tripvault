@@ -1,5 +1,16 @@
 import { useEffect, useState } from "react";
 import AddItinerary from "../components/AddItinerary";
+import {
+  collection,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+} from "firebase/firestore";
+import { db } from "../firebase";
+import Swal from "sweetalert2";
+import AddPlaceForm from "../components/AddPlaceForm";
+import TripSummary from "../components/TripSummary";
 
 function BucketList() {
   const [allTrips, setallTrips] = useState([]);
@@ -7,11 +18,26 @@ function BucketList() {
   const [sort, setSort] = useState("year-asc");
   const [search, setSearch] = useState("");
   const [selectedTrip, setSelectedTrip] = useState(null);
+  const [editTrip, setEditTrip] = useState(null);
   const [showItinerary, setShowItinerary] = useState(false);
+  const [loading, setLoading] = useState(false);
 
+  const fetchTrips = async () => {
+    setLoading(true);
+    try {
+      const snapshot = await getDocs(collection(db, "places"));
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setallTrips(data);
+    } catch (e) {
+      console.error("Error fetching trips:", e);
+    }
+    setLoading(false);
+  };
   useEffect(() => {
-    const savedTrips = JSON.parse(localStorage.getItem("tripvault") || "[]");
-    setallTrips(savedTrips);
+    fetchTrips();
   }, []);
   console.log(allTrips);
 
@@ -36,23 +62,50 @@ function BucketList() {
       if (sort === "year-asc") return a.year - b.year;
     });
 
-  const handleToggleVisited = (id) => {
-    const updatedTrips = allTrips.map((t) =>
-      t.id === id ? { ...t, visited: !t.visited } : t
-    );
-    setallTrips(updatedTrips);
-    localStorage.setItem("tripvault", JSON.stringify(updatedTrips));
+  const handleToggleVisited = async (id, currentVisited) => {
+    try {
+      const tripRef = doc(db, "places", id);
+      await updateDoc(tripRef, { visited: !currentVisited });
+
+      const updatedTrips = allTrips.map((t) =>
+        t.id === id ? { ...t, visited: !currentVisited } : t
+      );
+      setallTrips(updatedTrips);
+    } catch (error) {
+      console.error("Error updating visited status:", error);
+      alert("Failed to update visited status.");
+    }
   };
 
-  const handleDelete = (id) => {
-    const filtered = allTrips.filter((t) => t.id !== id);
-    setallTrips(filtered);
-    localStorage.setItem("tripvault", JSON.stringify(filtered));
+  const handleDelete = async (id, name) => {
+    const result = await Swal.fire({
+      title: `Are you sure you want to delete "${name}"?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!",
+    });
+    if (result.isConfirmed) {
+      try {
+        await deleteDoc(doc(db, "places", id));
+        const filtered = allTrips.filter((t) => t.id !== id);
+        setallTrips(filtered);
+      } catch (error) {
+        console.error("Error deleting trip:", error);
+        alert("Failed to delete trip.");
+      }
+    }
+  };
+
+  const handleEditPlace = (trip) => {
+    setEditTrip(trip);
   };
 
   return (
     <div className="max-w-4xl mx-auto p-4">
       <h2 className="text-2xl font-bold mb-4">My Bucket List</h2>
+      {allTrips.length > 0 && <TripSummary trips={allTrips} />}
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <input
@@ -85,7 +138,12 @@ function BucketList() {
         </div>
       </div>
 
-      {allTrips.length === 0 ? (
+      {loading ? (
+        <div className="flex flex-col items-center justify-center h-64 text-blue-600">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-4 border-blue-500 border-solid mb-3" />
+          <p>Loading trips...</p>
+        </div>
+      ) : allTrips.length === 0 ? (
         <p className="text-grey-500">No trips added yet.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -112,7 +170,7 @@ function BucketList() {
 
               <div className="flex items-center justify-between mb-4">
                 <span
-                  className={`text-xs font-medium px-3 py-1 rounded-full ${
+                  className={`inline-block px-2 py-1 text-xs font-bold rounded-full ${
                     trip.visited
                       ? "bg-green-100 text-green-700"
                       : "bg-yellow-100 text-yellow-700"
@@ -123,25 +181,64 @@ function BucketList() {
               </div>
 
               {trip.itinerary && trip.itinerary.length > 0 ? (
-                <div className="bg-gray-50 border border-gray-200 p-3 rounded mt-2 space-y-2">
-                  <h4 className="font-bold text-gray-700">🗓️ Itinerary</h4>
+                <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg mt-2 space-y-3">
+                  <h4 className="font-bold text-blue-800 flex items-center gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                    Itinerary
+                  </h4>
                   {trip.itinerary.map((dayPlan, index) => (
                     <div
                       key={index}
-                      className="pl-2 border-l-2 border-blue-400"
+                      className="pl-3 border-l-2 border-blue-300 bg-white p-2 rounded"
                     >
-                      <p className="font-medium text-indigo-700 mt-1">
-                        📅 Day {dayPlan.day}
+                      <p className="font-medium text-blue-700 flex items-center gap-1">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"
+                          />
+                        </svg>
+                        Day {dayPlan.day}
                       </p>
-                      <ul className="text-sm ml-2 text-gray-700">
-                        <li>
-                          <strong>☀️ Morning:</strong> {dayPlan.morning}
+                      <ul className="text-sm ml-1 space-y-1 mt-1">
+                        <li className="flex items-start gap-1">
+                          <span className="text-yellow-600">☀️</span>
+                          <span>
+                            <strong>Morning:</strong> {dayPlan.morning}
+                          </span>
                         </li>
-                        <li>
-                          <strong>🌇 Afternoon:</strong> {dayPlan.afternoon}
+                        <li className="flex items-start gap-1">
+                          <span className="text-orange-500">🌇</span>
+                          <span>
+                            <strong>Afternoon:</strong> {dayPlan.afternoon}
+                          </span>
                         </li>
-                        <li>
-                          <strong>🌙 Evening:</strong> {dayPlan.evening}
+                        <li className="flex items-start gap-1">
+                          <span className="text-indigo-600">🌙</span>
+                          <span>
+                            <strong>Evening:</strong> {dayPlan.evening}
+                          </span>
                         </li>
                       </ul>
                     </div>
@@ -160,16 +257,22 @@ function BucketList() {
 
               <div className="flex justify-between gap-2 mt-4">
                 <button
-                  onClick={() => handleToggleVisited(trip.id)}
+                  onClick={() => handleToggleVisited(trip.id, trip.visited)}
                   className="flex-1 bg-blue-600 text-white text-sm py-2 rounded hover:bg-blue-700 transition"
                 >
                   {trip.visited ? "Unmark" : "Mark as Visited"}
                 </button>
                 <button
-                  onClick={() => handleDelete(trip.id)}
+                  onClick={() => handleDelete(trip.id, trip.place)}
                   className="flex-1 bg-red-500 text-white text-sm py-2 rounded hover:bg-red-600 transition"
                 >
                   Delete
+                </button>
+                <button
+                  onClick={() => handleEditPlace(trip)}
+                  className="flex-1 bg-yellow-500 text-white text-sm py-2 rounded hover:bg-yellow-600 transition"
+                >
+                  Edit
                 </button>
               </div>
             </div>
@@ -183,6 +286,7 @@ function BucketList() {
           onClose={() => {
             setSelectedTrip(null);
             setShowItinerary(false);
+            fetchTrips();
           }}
           setItinerary={(itinerary) => {
             const updatedTrips = allTrips.map((t) =>
@@ -191,6 +295,26 @@ function BucketList() {
             setallTrips(updatedTrips);
           }}
         />
+      )}
+      {editTrip && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg relative">
+            <button
+              onClick={() => setEditTrip(null)}
+              className="absolute top-8 right-8 text-gray-500 hover:text-black text-xl"
+            >
+              ❌
+            </button>
+
+            <AddPlaceForm
+              editingTrip={editTrip}
+              onClose={() => {
+                setEditTrip(null);
+                fetchTrips();
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
